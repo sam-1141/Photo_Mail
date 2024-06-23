@@ -7,7 +7,7 @@ import os
 import sys
 import json
 
-# Add the scripts directory to the system path
+# Add the scripts directory to the system pathggggggggg
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS_DIR = os.path.join(BASE_DIR)
 sys.path.append(SCRIPTS_DIR)
