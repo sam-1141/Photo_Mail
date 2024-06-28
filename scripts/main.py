@@ -7,6 +7,7 @@ from PIL import Image, ImageTk
 import os
 import sys
 import json
+import requests  # Add this import to check internet connection
 
 # Add the scripts directory to the system path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -49,7 +50,11 @@ class MyApplication:
         # Create context menu
         self.create_context_menu()
 
-        # Create a canvas to enable scrolling
+        # Create a canvas to enable scrolling pyinstaller 
+        # --name main --onefile --windowed --icon=icon.ico main.py 
+        #pyinstaller main.spec
+
+
         self.create_scrollable_canvas()
 
         # Play introductory video
@@ -240,6 +245,10 @@ class MyApplication:
         tab.grid_columnconfigure(1, weight=3)
         tab.grid_columnconfigure(2, weight=1)
 
+        # Add the internet status label
+        self.internet_status_label = tk.Label(tab, text="", font=("Arial", 24))
+        self.internet_status_label.grid(row=0, column=2, pady=10, padx=20, sticky='ne')
+
         # Email entry box
         email_icon_label = ttk.Label(tab, text="📧", font=('bold', 24), background="#C0C0C0",foreground= 'black')
         email_icon_label.grid(row=0, column=1, pady=5)
@@ -286,12 +295,15 @@ class MyApplication:
         cancel_label = ttk.Label(tab, text="❌", font=('Arial', 24), background="#C0C0C0", foreground="red")
         cancel_label.grid(row=9, column=1, pady=10, padx=20, sticky=tk.E)
 
+        # Update internet status
+        self.update_internet_status()
+
     def update_email_color(self, event):
         email_text = self.email_entry.get("1.0", tk.END).strip()
         self.email_entry.delete("1.0", tk.END)
 
         at_index = email_text.find("@")
-        if at_index != -1:
+        if (at_index != -1):
             before_at = email_text[:at_index]
             after_at = email_text[at_index:]
             self.email_entry.insert(tk.END, before_at, "before_at")
@@ -477,6 +489,17 @@ class MyApplication:
             config = json.load(f)
             for key, value in config.items():
                 setattr(sv, key, value)
+
+    def update_internet_status(self):
+        try:
+            # Try to connect to a website to check the internet connection
+            requests.get("https://www.google.com", timeout=5)
+            self.internet_status_label.configure(text="📶", fg="green")  # Wi-Fi available emoji
+        except requests.ConnectionError:
+            self.internet_status_label.configure(text="🚫", fg="red")  # No Wi-Fi emoji
+        
+        # Check the internet status every 10 seconds
+        self.root.after(10000, self.update_internet_status)
 
 if __name__ == "__main__":
     root = tk.Tk()

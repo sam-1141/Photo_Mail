@@ -3,9 +3,21 @@ from tkinter import messagebox
 import cv2
 import os
 import smtplib
-from PIL import Image, ImageTk
 import settings_variables as sv
-import importlib ,time, threading
+import importlib
+import time
+import threading
+import socket
+
+# Function to check internet connection
+def check_internet(host="8.8.8.8", port=53, timeout=3):
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        return True
+    except Exception as ex:
+        print(ex)
+        return False
 
 # Function to resize frame image to match webcam dimensions
 def resize_frame_image(frame_img, webcam_width, webcam_height):
@@ -18,7 +30,6 @@ def set_resolution(cap, width, height):
 
 # Function to reload settings
 def reload_settings():
-    import settings_variables as sv
     importlib.reload(sv)
     print("Settings reloaded:")
     print(f"SENDER_EMAIL: {sv.SENDER_EMAIL}")
@@ -44,39 +55,26 @@ def create_image_frame_folder(My_Frame):
     print(f"Directory path: {new_folder_path}")
     return new_folder_path
 
-import cv2
-
 def prev(img_path):
-    # Load the image
     image = cv2.imread(img_path)
-    
-    # Display the image
     cv2.imshow('Preview', image)
-    
-    # Initialize flag
     flag = None
-    
     while True:
         key = cv2.waitKey(0)
-        
         if key == 27:  # Esc key
             flag = 0
             break
         elif key == 32:  # Space bar
             flag = 1
             break
-    
-    # Close the image window
     cv2.destroyAllWindows()
-    
     return flag
 
-                        
-    
-
-
-# Function to capture image and send email
 def capture_and_send_email(receiver_email, root, app):
+    if not check_internet():
+        messagebox.showerror("Error", "Internet connection is not available. Email will not be sent.")
+        return
+
     try:
         reload_settings()
         cap = cv2.VideoCapture(0)
@@ -85,10 +83,8 @@ def capture_and_send_email(receiver_email, root, app):
             return
 
         set_resolution(cap, sv.WEBCAM_WIDTH, sv.WEBCAM_HEIGHT)
-
         frame_image_path = sv.MY_Frame
         frame_img = cv2.imread(frame_image_path, cv2.IMREAD_UNCHANGED)
-
         if frame_img is None or frame_img.shape[2] != 4:
             messagebox.showerror("Error", "The frame image does not have an alpha channel or could not be loaded.")
             cap.release()
@@ -102,21 +98,21 @@ def capture_and_send_email(receiver_email, root, app):
 
         webcam_height, webcam_width = frame.shape[:2]
         frame_img_resized = resize_frame_image(frame_img, webcam_width, webcam_height)
-
         camera_window = tk.Toplevel(root)
         camera_window.title("Webcam with Frame")
         camera_window.geometry(f"{webcam_width}x{webcam_height}")
         camera_window.attributes("-topmost", True)
-        camera_window.attributes("-fullscreen", True)  # Make the window fullscreen
+        camera_window.attributes("-fullscreen", True)
 
         def on_close():
             cap.release()
             cv2.destroyAllWindows()
             camera_window.destroy()
             app.refresh()
+
         def sm(receiver_email, captured_image_path):
             send_email(receiver_email, captured_image_path)
-            messagebox.showinfo("Success", "Email sent successfully!")
+            
 
         camera_window.protocol("WM_DELETE_WINDOW", on_close)
 
@@ -151,7 +147,6 @@ def capture_and_send_email(receiver_email, root, app):
                         cap.release()
                         cv2.destroyAllWindows()
                         camera_window.destroy()
-                        
                         break
                     else:
                         pass
@@ -176,6 +171,11 @@ def send_email(receiver_email, image_path):
         sender_email = sv.SENDER_EMAIL
         sender_password = sv.SENDER_PASSWORD
 
+        # Check if the sender email or password is empty
+        if not sender_email or not sender_password:
+            messagebox.showerror("Error", "Email is not sent. Provide sender mail and app password correctly.")
+            return
+
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = receiver_email
@@ -198,9 +198,12 @@ def send_email(receiver_email, image_path):
         text = msg.as_string()
         server.sendmail(sender_email, receiver_email, text)
         server.quit()
+        time.sleep(2)
 
         print(f"Email sent successfully to {receiver_email}")
+        messagebox.showinfo("Success", f"Email sent successfully to {receiver_email}")
 
+    except smtplib.SMTPAuthenticationError:
+        messagebox.showerror("Authentication Error", "Email is not sent. Provide sender mail and app password correctly.")
     except Exception as e:
-        print(f"Error sending email: {str(e)}")
-
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
